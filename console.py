@@ -165,12 +165,10 @@ class HBNBCommand(cmd.Cmd):
             if type(value) is str and '"' in value:
                 value = value.strip('"')
                 paramsDic[key] = value
+
+        for key, value in paramsDic.items():
             if key in HBNBCommand.types:
                 value = HBNBCommand.types[key](value)
-
-        # ???? what is the poiny
-        # if key in HBNBCommand.types:
-        #     value = HBNBCommand.types[key](value)
 
         if not className:
             print("** class name missing **")
