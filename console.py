@@ -165,6 +165,8 @@ class HBNBCommand(cmd.Cmd):
             if type(value) is str and '"' in value:
                 value = value.strip('"')
                 paramsDic[key] = value
+            if key in HBNBCommand.types:
+                value = HBNBCommand.types[key](value)
 
         # ???? what is the poiny
         # if key in HBNBCommand.types:
