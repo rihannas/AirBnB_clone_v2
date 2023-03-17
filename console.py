@@ -167,8 +167,8 @@ class HBNBCommand(cmd.Cmd):
                 paramsDic[key] = value
 
         # ???? what is the poiny
-        if key in HBNBCommand.types:
-            value = HBNBCommand.types[key](value)
+        # if key in HBNBCommand.types:
+        #     value = HBNBCommand.types[key](value)
 
         if not className:
             print("** class name missing **")
