@@ -19,16 +19,16 @@ class HBNBCommand(cmd.Cmd):
     prompt = '(hbnb) ' if sys.__stdin__.isatty() else ''
 
     classes = {
-               'BaseModel': BaseModel, 'User': User, 'Place': Place,
-               'State': State, 'City': City, 'Amenity': Amenity,
-               'Review': Review
-              }
+        'BaseModel': BaseModel, 'User': User, 'Place': Place,
+        'State': State, 'City': City, 'Amenity': Amenity,
+        'Review': Review
+    }
     dot_cmds = ['all', 'count', 'show', 'destroy', 'update']
     types = {
-             'number_rooms': int, 'number_bathrooms': int,
-             'max_guest': int, 'price_by_night': int,
-             'latitude': float, 'longitude': float
-            }
+        'number_rooms': int, 'number_bathrooms': int,
+        'max_guest': int, 'price_by_night': int,
+        'latitude': float, 'longitude': float
+    }
 
     def preloop(self):
         """Prints if isatty is false"""
@@ -73,7 +73,7 @@ class HBNBCommand(cmd.Cmd):
                 pline = pline[2].strip()  # pline is now str
                 if pline:
                     # check for *args or **kwargs
-                    if pline[0] is '{' and pline[-1] is'}'\
+                    if pline[0] is '{' and pline[-1] is '}'\
                             and type(eval(pline)) is dict:
                         _args = pline
                     else:
@@ -113,16 +113,75 @@ class HBNBCommand(cmd.Cmd):
         """ Overrides the emptyline method of CMD """
         pass
 
-    def do_create(self, args):
+    def do_create(self, *args, **kwargs):
         """ Create an object of any class"""
-        if not args:
+        args_list = list(args)
+        cmd = args_list[0].split(' ')
+        className = cmd[0]
+        params = cmd[1:]
+
+        paramsDic = {}
+        outerlst = []
+        for param in params:
+            innerlst = param.split('=')
+            outerlst.append(innerlst)
+
+        print(outerlst)
+        for innerlst in outerlst:
+            key = innerlst[0]
+            value = innerlst[1]
+            paramsDic[key] = value
+
+        # change the types to floats and ints from str
+        for key, value in paramsDic.items():
+            if key == 'number_rooms':
+                value = int(value)
+                paramsDic[key] = value
+            elif key == 'number_bathrooms':
+                value = int(value)
+                paramsDic[key] = value
+
+            elif key == 'price_by_night':
+                value = int(value)
+                paramsDic[key] = value
+
+            elif key == 'max_guest':
+                value = int(value)
+                paramsDic[key] = value
+
+            elif key == 'latitude':
+                value = float(value)
+                paramsDic[key] = value
+
+            elif key == 'longitude':
+                value = float(value)
+                paramsDic[key] = value
+
+        # fix underscores and escape "
+        for key, value in paramsDic.items():
+            if type(value) is str and '_' in value:
+                value = value.replace('_', ' ')
+                paramsDic[key] = value
+            if type(value) is str and '"' in value:
+                value = value.strip('"')
+                paramsDic[key] = value
+
+        # ???? what is the poiny
+        if key in HBNBCommand.types:
+            value = HBNBCommand.types[key](value)
+
+        if not className:
             print("** class name missing **")
             return
-        elif args not in HBNBCommand.classes:
+        elif className not in HBNBCommand.classes:
             print("** class doesn't exist **")
             return
-        new_instance = HBNBCommand.classes[args]()
+
+        new_instance = HBNBCommand.classes[className]()
         storage.save()
+        for k, v in paramsDic.items():
+            setattr(new_instance, k, v)
+        new_instance.save()
         print(new_instance.id)
         storage.save()
 
@@ -319,6 +378,7 @@ class HBNBCommand(cmd.Cmd):
         """ Help information for the update class """
         print("Updates an object with new information")
         print("Usage: update <className> <id> <attName> <attVal>\n")
+
 
 if __name__ == "__main__":
     HBNBCommand().cmdloop()
