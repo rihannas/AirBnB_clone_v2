@@ -24,12 +24,18 @@ class FileStorage:
 
     def save(self):
         """Saves storage dictionary to file"""
-        with open(FileStorage.__file_path, 'w') as f:
-            temp = {}
-            temp.update(FileStorage.__objects)
-            for key, val in temp.items():
-                temp[key] = val.to_dict()
-            json.dump(temp, f)
+        # with open(FileStorage.__file_path, 'w') as f:
+        #     temp = {}
+        #     temp.update(FileStorage.__objects)
+        #     for key, val in temp.items():
+        #         temp[key] = val.to_dict()
+        #     json.dump(temp, f)
+
+        dic_storage = {}
+        for key, value in self.__objects.items():
+            dic_storage[key] = value.to_dict()
+        with open(self.__file_path, "w", encoding='utf-8') as file_json:
+            file_json.write(json.dumps(dic_storage))
 
     def reload(self):
         """Loads storage dictionary from file"""
@@ -56,6 +62,9 @@ class FileStorage:
             pass
 
     def delete(self, obj=None):
+        """
+        a public instance method to delete obj from __objects if it is inside
+        """
         if obj is not None:
             for key, value in FileStorage.__objects.items():
                 if value is obj:
