@@ -105,8 +105,6 @@ class DBStorage():
         self.__engine = create_engine(
             f'mysql+mysqldb://{HBNB_MYSQL_USER}:{HBNB_MYSQL_PWD}@localhost/{HBNB_MYSQL_DB}', pool_pre_ping=True, echo=True)
 
-        if HBNB_ENV == "test":
-            Base.metadata.drop_all(self.__engine)
         
 
     def all(self, cls=None):
@@ -140,6 +138,17 @@ class DBStorage():
 
     def reload(self):
         """creates all tables in the database and creates the current database session"""
+        from models.base_model import Base
+        from models.user import User
+        from models.place import Place
+        from models.state import State
+        from models.city import City
+        from models.amenity import Amenity
+        from models.review import Review
+
+        if HBNB_ENV == "test":
+            Base.metadata.drop_all(self.__engine)
+
         Base.metadata.create_all(self.__engine)
         session = sessionmaker(bind=self.__engine, expire_on_commit=False)
         Session = scoped_session(session)
