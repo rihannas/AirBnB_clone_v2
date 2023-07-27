@@ -1,80 +1,79 @@
 #!/usr/bin/python3
+from uuid import uuid4
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime
+from sqlalchemy.ext.declarative import declarative_base
 
-"""DBStorage module"""
-import os
-from sqlalchemy import create_engine
-from dotenv import load_dotenv
-from sqlalchemy.orm import sessionmaker, scoped_session
+Base = declarative_base()
 
-
-load_dotenv()
-
-
-HBNB_MYSQL_USER = os.getenv('HBNB_MYSQL_USER')
-HBNB_MYSQL_PWD = os.getenv('HBNB_MYSQL_PWD')
-HBNB_MYSQL_DB = os.getenv('HBNB_MYSQL_DB')
-HBNB_MYSQL_HOST = os.getenv('HBNB_MYSQL_HOST')
-HBNB_ENV = os.getenv('HBNB_ENV')
+#  class BaseModel that defines all common attributes/methods for other classes:
 
 
-# classes = {
-#         'BaseModel': BaseModel, 'User': User, 'Place': Place,
-#         'State': State, 'City': City, 'Amenity': Amenity,
-#         'Review': Review
-#     }
+class BaseModel():
+    """Base class for all models"""
+    id = Column(String(60), nullable=False, primary_key=True)
+    created_at = Column(DateTime, default=datetime.utcnow(), nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow(), nullable=False)
 
-classes = [
-        'BaseModel', 'User', 'Place', 'State', 'City', 'Amenity', 'Review']
+    def __init__(self, *args, **kwargs):
+        # if kwargs is not empty
+        if kwargs:
+            if '__class__' in kwargs.keys():
+                # remove the key __class__ from kwargs
+                kwargs.pop('__class__')
 
-class DBStorage():
-    """class for db engine"""
+            for key, item in kwargs.items():
+                if key == 'created_at':
+                    cdt = datetime.strptime(item, '%Y-%m-%dT%H:%M:%S.%f')
+                    setattr(self, key, cdt)
+                elif key == 'updated_at':
+                    udt = datetime.strptime(item, '%Y-%m-%dT%H:%M:%S.%f')
+                    setattr(self, key, udt)
+                else:
+                    setattr(self, key, item)
 
-    __engine = None
-    __session = None
+        if not kwargs:
+            self.id = str(uuid4())
+            self.created_at = datetime.now()
+            self.updated_at = datetime.now()
 
-    def __init__(self):
-        self.__engine = create_engine(
-            f'mysql+mysqldb://{HBNB_MYSQL_USER}:{HBNB_MYSQL_PWD}@localhost/{HBNB_MYSQL_DB}', pool_pre_ping=True, echo=True)
+    # magic method which represents a class object as str
 
-        
+    def __str__(self):
+        return f'[{self.__class__.__name__}] ({self.id}) {self.__dict__}'
 
-    def all(self, cls=None):
-        """returns all objects for bd"""
-        new_dict = {}
-        for clss in classes:
-            if cls is None or cls is classes[clss] or cls is clss:
-                objs = self.__session.query(classes[clss]).all()
-                for obj in objs:
-                    key = obj.__class__.__name__ + '.' + obj.id
-                    new_dict[key] = obj
-        return (new_dict)
-    
-    
-    def new(self, obj):
-        """adds the object to the current database session """
-        self.__session.add(obj)
-        self.__session.commit()
+    # public methods
 
     def save(self):
-        """commits all changes of the current database session """
-        self.__session.commit()
-    
-    def delete(self, obj=None):
-        """deletes from the current database session"""
-        self.__session.delete()            
+        # updates updated_at with current datetime.
+        self.updated_at = datetime.now()
+        from models import storage
+        storage.new(self)
+        storage.save()
 
-    def reload(self):
-        from models.base_model import Base
-        from models.state import State
-        from models.city import City
-        from models.review import Review
-        from models.place import Place
-        from models.amenity import Amenity
-        from models.user import User
+    def to_dict(self):
+        # return dict - which contains all keys/values of __dict__ plus:
+        # 1. '__class__' key must be added to dictionary
+        # 2. created_at and updated_at in ISO format
 
-        """creates all tables in the database and creates the current database session"""
-        Base.metadata.create_all(self.__engine)
-        session = sessionmaker(bind=self.__engine, expire_on_commit=False)
-        Session = scoped_session(session)
-        self.__session = Session
+        dic = {}
 
+        # what is the difference of using copy() or not.
+        dic = self.__dict__.copy()
+        # dic['id'] = self.id no need as __dict__ has the id
+        dic['__class__'] = self.__class__.__name__
+        dic['created_at'] = self.created_at.isoformat()
+        dic['updated_at'] = self.updated_at.isoformat()
+        key = "_sa_instance_state"
+
+        if key in dic.keys():
+            del dic[key]
+
+        return dic
+
+    def delete(self):
+        """
+        deletes the current instance from storage
+        """
+        from models import storage
+        storage.delete(self)
