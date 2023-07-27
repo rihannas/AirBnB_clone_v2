@@ -10,6 +10,7 @@ from models.state import State
 from models.city import City
 from models.amenity import Amenity
 from models.review import Review
+import shlex
 
 
 class HBNBCommand(cmd.Cmd):
@@ -18,17 +19,24 @@ class HBNBCommand(cmd.Cmd):
     # determines prompt for interactive/non-interactive modes
     prompt = '(hbnb) ' if sys.__stdin__.isatty() else ''
 
-    classes = {
-        'BaseModel': BaseModel, 'User': User, 'Place': Place,
-        'State': State, 'City': City, 'Amenity': Amenity,
-        'Review': Review
-    }
-    dot_cmds = ['all', 'count', 'show', 'destroy', 'update']
     types = {
-        'number_rooms': int, 'number_bathrooms': int,
-        'max_guest': int, 'price_by_night': int,
-        'latitude': float, 'longitude': float
-    }
+             'number_rooms': int,
+             'number_bathrooms': int,
+             'max_guest': int, 'price_by_night': int,
+             'city_id': str, 'latitude': float,
+             'longitude': float, 'user_id': str,
+             'first_name': str, 'last_name': str,
+             'description': str, 'email': str,
+             'password': str, 'state_id': str, 'name': str,
+             'text': str, 'amenity_ids': list, 'place_id': str
+             }
+
+    classes = {
+               'BaseModel': BaseModel, 'User': User, 'Place': Place,
+               'State': State, 'City': City, 'Amenity': Amenity,
+               'Review': Review
+              }
+    dot_cmds = ['all', 'count', 'show', 'destroy', 'update']
 
     def preloop(self):
         """Prints if isatty is false"""
@@ -37,7 +45,6 @@ class HBNBCommand(cmd.Cmd):
 
     def precmd(self, line):
         """Reformat command line for advanced command syntax.
-
         Usage: <class name>.<command>([<id> [<*args> or <**kwargs>]])
         (Brackets denote optional fields in usage example.)
         """
@@ -113,77 +120,30 @@ class HBNBCommand(cmd.Cmd):
         """ Overrides the emptyline method of CMD """
         pass
 
-    def do_create(self, *args, **kwargs):
+    def do_create(self, args):
         """ Create an object of any class"""
-        args_list = list(args)
-        cmd = args_list[0].split(' ')
-        className = cmd[0]
-        params = cmd[1:]
-
-        paramsDic = {}
-        outerlst = []
-        for param in params:
-            innerlst = param.split('=')
-            outerlst.append(innerlst)
-
-        print(outerlst)
-        for innerlst in outerlst:
-            key = innerlst[0]
-            value = innerlst[1]
-            paramsDic[key] = value
-
-        # change the types to floats and ints from str
-        for key, value in paramsDic.items():
-            if key == 'number_rooms':
-                value = int(value)
-                paramsDic[key] = value
-            elif key == 'number_bathrooms':
-                value = int(value)
-                paramsDic[key] = value
-
-            elif key == 'price_by_night':
-                value = int(value)
-                paramsDic[key] = value
-
-            elif key == 'max_guest':
-                value = int(value)
-                paramsDic[key] = value
-
-            elif key == 'latitude':
-                value = float(value)
-                paramsDic[key] = value
-
-            elif key == 'longitude':
-                value = float(value)
-                paramsDic[key] = value
-
-        # fix underscores and escape "
-        for key, value in paramsDic.items():
-            if type(value) is str and '_' in value:
-                value = value.replace('_', ' ')
-                paramsDic[key] = value
-            if type(value) is str and '"' in value:
-                value = value.strip('"')
-                paramsDic[key] = value
-
-        for key, value in paramsDic.items():
-            if key in HBNBCommand.types:
-                value = HBNBCommand.types[key](value)
-
-        if not className:
+        lst = shlex.split(args)
+        if not lst[0]:
             print("** class name missing **")
             return
-        elif className not in HBNBCommand.classes:
+        elif lst[0] not in HBNBCommand.classes:
             print("** class doesn't exist **")
             return
-
-        new_instance = HBNBCommand.classes[className]()
-        storage.save()
-        for k, v in paramsDic.items():
+        new_instance = HBNBCommand.classes[lst[0]]()
+        new_dic = {}
+        for i in range(1, len(lst)):
+            part = lst[i].split("=")
+            key = part[0].strip('"')
+            value = part[1].strip('"')
+            if key in HBNBCommand.types:
+                value = HBNBCommand.types[key](value)
+            if (isinstance(value, str)):
+                value = value.replace("_", " ")
+            new_dic[key] = value
+        for k, v in new_dic.items():
             setattr(new_instance, k, v)
         new_instance.save()
         print(new_instance.id)
-        storage.save()
 
     def help_create(self):
         """ Help information for the create method """
@@ -265,11 +225,11 @@ class HBNBCommand(cmd.Cmd):
             if args not in HBNBCommand.classes:
                 print("** class doesn't exist **")
                 return
-            for k, v in storage._FileStorage__objects.items():
+            for k, v in storage.all().items():
                 if k.split('.')[0] == args:
                     print_list.append(str(v))
         else:
-            for k, v in storage._FileStorage__objects.items():
+            for k, v in storage.all().items():
                 print_list.append(str(v))
 
         print(print_list)
@@ -282,7 +242,7 @@ class HBNBCommand(cmd.Cmd):
     def do_count(self, args):
         """Count current number of class instances"""
         count = 0
-        for k, v in storage._FileStorage__objects.items():
+        for k, v in storage.all().items():
             if args == k.split('.')[0]:
                 count += 1
         print(count)
@@ -331,7 +291,7 @@ class HBNBCommand(cmd.Cmd):
                 args.append(v)
         else:  # isolate args
             args = args[2]
-            if args and args[0] == '\"':  # check for quoted arg
+            if (args and args[0]) == '\"':  # check for quoted arg
                 second_quote = args.find('\"', 1)
                 att_name = args[1:second_quote]
                 args = args[second_quote + 1:]
@@ -339,10 +299,10 @@ class HBNBCommand(cmd.Cmd):
             args = args.partition(' ')
 
             # if att_name was not quoted arg
-            if not att_name and args[0] != ' ':
+            if not (att_name and args[0]) != ' ':
                 att_name = args[0]
             # check for quoted val arg
-            if args[2] and args[2][0] == '\"':
+            if (args[2] and args[2][0]) == '\"':
                 att_val = args[2][1:args[2].find('\"', 1)]
 
             # if att_val was not quoted arg
