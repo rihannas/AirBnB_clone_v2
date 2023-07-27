@@ -1,64 +1,80 @@
 #!/usr/bin/python3
-"""This module defines a base class for all models in our hbnb clone"""
-import uuid
-from datetime import datetime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime
 
-'''
-Note: BaseModel class wont inherit Base because we dont a table of it,
-but the other class that inherit BaseModel like State, City etc will inherit Base
-because we want to create tables of them and store values
-'''
-
-Base = declarative_base()
+"""DBStorage module"""
+import os
+from sqlalchemy import create_engine
+from dotenv import load_dotenv
+from sqlalchemy.orm import sessionmaker, scoped_session
 
 
-class BaseModel:
-    """A base class for all hbnb models"""
+load_dotenv()
 
-    id = Column(String(60), nullable=False, primary_key=True)
-    created_at = Column(DateTime, default=datetime.utcnow(), nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow(), nullable=False)
 
-    def __init__(self, *args, **kwargs):
-        """Instatntiates a new model"""
-        if not kwargs:
-            self.id = str(uuid.uuid4())
-            self.created_at = datetime.now()
-            self.updated_at = datetime.now()
+HBNB_MYSQL_USER = os.getenv('HBNB_MYSQL_USER')
+HBNB_MYSQL_PWD = os.getenv('HBNB_MYSQL_PWD')
+HBNB_MYSQL_DB = os.getenv('HBNB_MYSQL_DB')
+HBNB_MYSQL_HOST = os.getenv('HBNB_MYSQL_HOST')
+HBNB_ENV = os.getenv('HBNB_ENV')
 
-        else:
-            kwargs['updated_at'] = datetime.strptime(kwargs['updated_at'],
-                                                     '%Y-%m-%dT%H:%M:%S.%f')
-            kwargs['created_at'] = datetime.strptime(kwargs['created_at'],
-                                                     '%Y-%m-%dT%H:%M:%S.%f')
-            del kwargs['__class__']
-            self.__dict__.update(kwargs)
 
-    def __str__(self):
-        """Returns a string representation of the instance"""
-        cls = (str(type(self)).split('.')[-1]).split('\'')[0]
-        return '[{}] ({}) {}'.format(cls, self.id, self.__dict__)
+# classes = {
+#         'BaseModel': BaseModel, 'User': User, 'Place': Place,
+#         'State': State, 'City': City, 'Amenity': Amenity,
+#         'Review': Review
+#     }
+
+classes = [
+        'BaseModel', 'User', 'Place', 'State', 'City', 'Amenity', 'Review']
+
+class DBStorage():
+    """class for db engine"""
+
+    __engine = None
+    __session = None
+
+    def __init__(self):
+        self.__engine = create_engine(
+            f'mysql+mysqldb://{HBNB_MYSQL_USER}:{HBNB_MYSQL_PWD}@localhost/{HBNB_MYSQL_DB}', pool_pre_ping=True, echo=True)
+
+        
+
+    def all(self, cls=None):
+        """returns all objects for bd"""
+        new_dict = {}
+        for clss in classes:
+            if cls is None or cls is classes[clss] or cls is clss:
+                objs = self.__session.query(classes[clss]).all()
+                for obj in objs:
+                    key = obj.__class__.__name__ + '.' + obj.id
+                    new_dict[key] = obj
+        return (new_dict)
+    
+    
+    def new(self, obj):
+        """adds the object to the current database session """
+        self.__session.add(obj)
+        self.__session.commit()
 
     def save(self):
-        """Updates updated_at with current time when instance is changed"""
-        from models import storage
-        self.updated_at = datetime.now()
-        storage.new(self)
-        storage.save()
+        """commits all changes of the current database session """
+        self.__session.commit()
+    
+    def delete(self, obj=None):
+        """deletes from the current database session"""
+        self.__session.delete()            
 
-    def to_dict(self):
-        """Convert instance into dict format"""
-        dictionary = {}
-        dictionary.update(self.__dict__)
-        dictionary.update({'__class__':
-                          (str(type(self)).split('.')[-1]).split('\'')[0]})
-        dictionary['created_at'] = self.created_at.isoformat()
-        dictionary['updated_at'] = self.updated_at.isoformat()
-        return dictionary
+    def reload(self):
+        from models.base_model import Base
+        from models.state import State
+        from models.city import City
+        from models.review import Review
+        from models.place import Place
+        from models.amenity import Amenity
+        from models.user import User
 
-    def delete(self):
-        """delete the current instance from the storage"""
-        from models import storage
-        storage.delete(self)
+        """creates all tables in the database and creates the current database session"""
+        Base.metadata.create_all(self.__engine)
+        session = sessionmaker(bind=self.__engine, expire_on_commit=False)
+        Session = scoped_session(session)
+        self.__session = Session
+
